@@ -1,0 +1,19 @@
+{
+    "id": "{8F5E8A3C-7D2A-4B1E-9F6C-2E4A8B3D5F7E}",
+    "name": "Wattpilot Flex",
+    "type": 3,
+    "vendor": "Fronius",
+    "aliases": [
+        "Wattpilot Flex C6"
+    ],
+    "url": "https://github.com/Kelevra-0815/WattpilotFlex",
+    "parentRequirements": ["{1E4A7F3B-8C2D-4E5F-9A6B-7C8D9E0F1A2B}"],
+    "childRequirements": [],
+    "implemented": ["{2F5B8A4C-9D3E-4F6A-AB7C-8D9E0F1A2B3C}"],
+    "prefix": "WP",
+    "status": [
+        { "code": 102, "icon": "active", "caption": "Verbunden" },
+        { "code": 201, "icon": "inactive", "caption": "Warte auf Splitter" },
+        { "code": 202, "icon": "error", "caption": "Fehler" }
+    ]
+}
