@@ -1,0 +1,66 @@
+{
+    "elements": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "Wattpilot Verbindung",
+            "expanded": true,
+            "items": [
+                {
+                    "name": "Host",
+                    "type": "ValidationTextBox",
+                    "caption": "IP-Adresse des Wattpilot"
+                },
+                {
+                    "name": "Password",
+                    "type": "PasswordTextBox",
+                    "caption": "Passwort"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Verbindungseinstellungen",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Die Verbindung bleibt dauerhaft offen (WebSocket Push).\nDer Reconnect-Timer prüft periodisch ob die Verbindung noch steht."
+                },
+                {
+                    "name": "ReconnectInterval",
+                    "type": "NumberSpinner",
+                    "caption": "Reconnect-Check Intervall",
+                    "minimum": 10,
+                    "maximum": 300,
+                    "suffix": "Sekunden"
+                },
+                {
+                    "name": "UpdateInterval",
+                    "type": "NumberSpinner",
+                    "caption": "Variablen-Aktualisierung",
+                    "minimum": 1,
+                    "maximum": 300,
+                    "suffix": "Sekunden"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Verbindung neu aufbauen",
+            "onClick": "WPSP_Reconnect($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Verbindung testen",
+            "onClick": "WPSP_TestConnection($id);"
+        }
+    ],
+    "status": [
+        { "code": 102, "icon": "active", "caption": "Verbunden" },
+        { "code": 201, "icon": "inactive", "caption": "Nicht konfiguriert" },
+        { "code": 202, "icon": "error", "caption": "Verbindungsfehler" },
+        { "code": 203, "icon": "error", "caption": "Authentifizierung fehlgeschlagen" }
+    ]
+}

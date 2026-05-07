@@ -1,0 +1,20 @@
+{
+    "id": "{D5E8F3A2-7B4C-4E9D-8A1F-6C3B5D7E9F0A}",
+    "name": "Wattpilot Splitter",
+    "type": 2,
+    "vendor": "Fronius",
+    "aliases": [
+        "Wattpilot Verbindung"
+    ],
+    "url": "https://github.com/Kelevra-0815/WattpilotFlex",
+    "parentRequirements": ["{79827379-F36E-4ADA-8A95-5F8D1DC92FA9}"],
+    "childRequirements": ["{2F5B8A4C-9D3E-4F6A-AB7C-8D9E0F1A2B3C}"],
+    "implemented": ["{1E4A7F3B-8C2D-4E5F-9A6B-7C8D9E0F1A2B}", "{018EF6B5-AB94-40C6-AA53-46943E824ACF}"],
+    "prefix": "WPSP",
+    "status": [
+        { "code": 102, "icon": "active", "caption": "Verbunden" },
+        { "code": 201, "icon": "inactive", "caption": "Nicht konfiguriert" },
+        { "code": 202, "icon": "error", "caption": "Verbindungsfehler" },
+        { "code": 203, "icon": "error", "caption": "Authentifizierung fehlgeschlagen" }
+    ]
+}

@@ -1,0 +1,149 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "caption": "☕ Gefällt dir dieses Modul? Unterstütze die Entwicklung:"
+        },
+        {
+            "type": "Button",
+            "caption": "💛 PayPal Donate",
+            "onClick": "echo 'https://www.paypal.com/donate/?hosted_button_id=4HVXKG7QKF4WW';"
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Optionale Variablen",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Wähle welche zusätzlichen Variablen erstellt werden sollen.\nDeaktivierte Variablen werden beim Speichern gelöscht."
+                },
+                { "name": "ShowCurrent",     "type": "CheckBox", "caption": "Strom (L1, L2, L3)" },
+                { "name": "ShowVoltage",     "type": "CheckBox", "caption": "Spannung (L1, L2, L3)" },
+                { "name": "ShowTemperature", "type": "CheckBox", "caption": "Temperaturen" },
+                { "name": "ShowPhaseDetail", "type": "CheckBox", "caption": "Phasen-Details (aktive Phasen L1/L2/L3)" },
+                { "name": "ShowSystem",      "type": "CheckBox", "caption": "System (Firmware, Seriennummer, Neustarts, Laufzeit, WLAN)" },
+                { "name": "ShowExtras",      "type": "CheckBox", "caption": "Extras (Kabel-Limit, 16A-Adapter, Transaktion, Energie-Limit)" }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Archivierung / Logging",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Aktiviert die Archivierung (Logging) für ausgewählte Variablen."
+                },
+                { "name": "LogPower",  "type": "CheckBox", "caption": "Ladeleistung gesamt (WP_nrg_ptotal) – Standard-Logging" },
+                { "name": "LogEnergy", "type": "CheckBox", "caption": "Gesamtenergie (WP_eto) – Zähler-Logging" }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Status manuell aktualisieren",
+            "onClick": "WP_UpdateStatus($id);"
+        },
+        {
+            "type": "Label",
+            "caption": "─── Lademodus ───────────────────────────────"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "SetLademodus",
+                    "caption": "Lademodus",
+                    "options": [
+                        { "caption": "Standard", "value": 3 },
+                        { "caption": "ECO / PV-Überschuss", "value": 4 },
+                        { "caption": "AutoStop", "value": 5 }
+                    ]
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anwenden",
+                    "onClick": "WP_SetLademodus($id, (int)$SetLademodus);"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "─── Force-Modus ─────────────────────────────"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "SetForceModus",
+                    "caption": "Force-Modus",
+                    "options": [
+                        { "caption": "Neutral", "value": 0 },
+                        { "caption": "Aus", "value": 1 },
+                        { "caption": "Ein", "value": 2 }
+                    ]
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anwenden",
+                    "onClick": "WP_SetForceModus($id, (int)$SetForceModus);"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "─── Ladestrom ───────────────────────────────"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "SetLadestrom",
+                    "caption": "Ladestrom",
+                    "minimum": 6,
+                    "maximum": 32,
+                    "suffix": "A"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anwenden",
+                    "onClick": "WP_SetLadestrom($id, (int)$SetLadestrom);"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "─── Phasenmodus ─────────────────────────────"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "SetPhasenmodus",
+                    "caption": "Phasenmodus",
+                    "options": [
+                        { "caption": "Auto", "value": 0 },
+                        { "caption": "1-phasig", "value": 1 },
+                        { "caption": "3-phasig", "value": 2 }
+                    ]
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anwenden",
+                    "onClick": "WP_SetPhasenmodus($id, (int)$SetPhasenmodus);"
+                }
+            ]
+        }
+    ],
+    "status": [
+        { "code": 102, "icon": "active", "caption": "Verbunden" },
+        { "code": 201, "icon": "inactive", "caption": "Warte auf Splitter" },
+        { "code": 202, "icon": "error", "caption": "Fehler" }
+    ]
+}
