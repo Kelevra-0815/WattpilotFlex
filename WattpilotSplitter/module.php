@@ -63,8 +63,6 @@ class WattpilotSplitter extends IPSModule
             return;
         }
 
-        $this->UpdateConfigurationForParent();
-
         $interval = $this->ReadPropertyInteger('ReconnectInterval');
         $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
 
@@ -100,10 +98,6 @@ class WattpilotSplitter extends IPSModule
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Timer: Gebündelte Messwerte pushen
-    // ══════════════════════════════════════════════════════════════════════════
-
     public function PushUpdate(): void
     {
         if ((int)$this->GetBuffer('State') !== self::STATE_CONNECTED) {
@@ -120,14 +114,9 @@ class WattpilotSplitter extends IPSModule
             return;
         }
 
-        // Buffer leeren BEVOR gesendet wird
         $this->SetBuffer('DeltaBuffer', '{}');
         $this->SendToChildren('deltaStatus', $delta);
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Parent-Konfiguration
-    // ══════════════════════════════════════════════════════════════════════════
 
     public function GetConfigurationForParent()
     {
@@ -138,42 +127,12 @@ class WattpilotSplitter extends IPSModule
         return json_encode(['URL' => "ws://{$host}/ws", 'Active' => true]);
     }
 
-    private function UpdateConfigurationForParent(): void
-    {
-        $cID = $this->GetConnectionID();
-        if ($cID == 0 || !@IPS_InstanceExists($cID)) return;
-
-        if (IPS_GetInstance($cID)['InstanceStatus'] >= 200) {
-            if (@IPS_GetProperty($cID, 'Active') == true) {
-                IPS_SetProperty($cID, 'Active', false);
-                @IPS_ApplyChanges($cID);
-            }
-        }
-
-        $old_cfg = IPS_GetConfiguration($cID);
-        $new_cfg = $this->GetConfigurationForParent();
-
-        if ($old_cfg != $new_cfg) {
-            IPS_SetConfiguration($cID, $new_cfg);
-            @IPS_ApplyChanges($cID);
-        } else {
-            if (!@IPS_GetProperty($cID, 'Active')) {
-                IPS_SetProperty($cID, 'Active', true);
-                @IPS_ApplyChanges($cID);
-            }
-        }
-    }
-
     private function GetConnectionID(): int
     {
         $instance = @IPS_GetInstance($this->InstanceID);
         if ($instance === false) return 0;
         return (int)($instance['ConnectionID'] ?? 0);
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Datenempfang vom WebSocket Client
-    // ══════════════════════════════════════════════════════════════════════════
 
     public function ReceiveData($JSONString)
     {
@@ -189,10 +148,6 @@ class WattpilotSplitter extends IPSModule
         $this->handleMessage($msg);
         return '';
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // ForwardData von Child
-    // ══════════════════════════════════════════════════════════════════════════
 
     public function ForwardData($JSONString)
     {
@@ -226,10 +181,6 @@ class WattpilotSplitter extends IPSModule
                 return '';
         }
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Nachrichten-Handler
-    // ══════════════════════════════════════════════════════════════════════════
 
     private function handleMessage(array $msg): void
     {
@@ -299,7 +250,6 @@ class WattpilotSplitter extends IPSModule
             $serial = $this->GetBuffer('Serial');
             $this->SetSummary($host . ' (#' . $serial . ')');
 
-            // fullStatus sofort an Children
             $this->SendToChildren('fullStatus', $currentStatus);
             $this->SetBuffer('DeltaBuffer', '{}');
         }
@@ -309,13 +259,11 @@ class WattpilotSplitter extends IPSModule
     {
         $statusData = $msg['status'] ?? [];
 
-        // FullStatus aktuell halten
         $currentStatus = json_decode($this->GetBuffer('FullStatus'), true) ?: [];
         $currentStatus = array_merge($currentStatus, $statusData);
         $this->SetBuffer('FullStatus', json_encode($currentStatus));
 
         if ((int)$this->GetBuffer('State') === self::STATE_CONNECTED) {
-            // In DeltaBuffer sammeln – Timer pusht gebündelt
             $deltaBuffer = json_decode($this->GetBuffer('DeltaBuffer'), true) ?: [];
             $deltaBuffer = array_merge($deltaBuffer, $statusData);
             $this->SetBuffer('DeltaBuffer', json_encode($deltaBuffer));
@@ -333,15 +281,10 @@ class WattpilotSplitter extends IPSModule
             $this->SetBuffer('FullStatus', json_encode($currentStatus));
 
             if ((int)$this->GetBuffer('State') === self::STATE_CONNECTED) {
-                // Response auf Steuerbefehl → SOFORT pushen
                 $this->SendToChildren('deltaStatus', $msg['status']);
             }
         }
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Daten an Children
-    // ══════════════════════════════════════════════════════════════════════════
 
     private function SendToChildren(string $type, array $status): void
     {
@@ -353,10 +296,6 @@ class WattpilotSplitter extends IPSModule
             ]),
         ]));
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Authentifizierung
-    // ══════════════════════════════════════════════════════════════════════════
 
     private function performAuth(string $token1, string $token2): void
     {
@@ -445,10 +384,6 @@ class WattpilotSplitter extends IPSModule
         ]));
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Öffentliche Funktionen
-    // ══════════════════════════════════════════════════════════════════════════
-
     public function Reconnect(): void
     {
         $this->SendDebug('WS', 'Reconnect', 0);
@@ -459,12 +394,11 @@ class WattpilotSplitter extends IPSModule
 
         $cID = $this->GetConnectionID();
         if ($cID > 0 && @IPS_InstanceExists($cID)) {
-            if (@IPS_GetProperty($cID, 'Active')) {
-                IPS_SetProperty($cID, 'Active', false);
-                @IPS_ApplyChanges($cID);
-            }
+            @IPS_SetProperty($cID, 'Active', false);
+            @IPS_ApplyChanges($cID);
             IPS_Sleep(1000);
-            $this->UpdateConfigurationForParent();
+            @IPS_SetProperty($cID, 'Active', true);
+            @IPS_ApplyChanges($cID);
         }
     }
 
