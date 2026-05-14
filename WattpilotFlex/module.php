@@ -101,14 +101,12 @@ class WattpilotFlex extends IPSModule
         ['WP_awc',         'Awattar Land',               VARIABLETYPE_STRING,  '',                    'Awattar',             1],
         ['WP_awp',         'Awattar Max-Preis (ct)',     VARIABLETYPE_FLOAT,   '',                    'Awattar',             2],
         ['WP_ful',         'Dynamische Preise aktiv',    VARIABLETYPE_BOOLEAN, '',                    'Awattar',             3],
-        // ── Ladeplaner: 3x Control (steuerbar) + 3x Slots (read-only String) ──
         ['WP_sch_week_ctrl',   'Zeitplan Mo–Fr',         VARIABLETYPE_INTEGER, 'WP.ScheduleCtrl',    'Ladeplaner',          1],
         ['WP_sch_week_slots',  'Zeitfenster Mo–Fr',     VARIABLETYPE_STRING,  '',                    'Ladeplaner',          2],
         ['WP_sch_satur_ctrl',  'Zeitplan Samstag',       VARIABLETYPE_INTEGER, 'WP.ScheduleCtrl',    'Ladeplaner',          3],
         ['WP_sch_satur_slots', 'Zeitfenster Samstag',   VARIABLETYPE_STRING,  '',                    'Ladeplaner',          4],
         ['WP_sch_sund_ctrl',   'Zeitplan Sonntag',       VARIABLETYPE_INTEGER, 'WP.ScheduleCtrl',    'Ladeplaner',          5],
         ['WP_sch_sund_slots',  'Zeitfenster Sonntag',   VARIABLETYPE_STRING,  '',                    'Ladeplaner',          6],
-        // ── System ───────────────────────────────────────────────────────────
         ['WP_fwv',         'Firmware Version',           VARIABLETYPE_STRING,  '',                    'System',              1],
         ['WP_sse',         'Seriennummer',               VARIABLETYPE_STRING,  '',                    'System',              2],
         ['WP_var',         'Variante (kW)',              VARIABLETYPE_INTEGER, '',                    'System',              3],
@@ -137,7 +135,6 @@ class WattpilotFlex extends IPSModule
         'Netzwerk'          => 10,
     ];
 
-    // Mapping: API-Key → [ctrl_ident, slots_ident]
     private const SCHEDULE_MAP = [
         'sch_week'  => ['WP_sch_week_ctrl',  'WP_sch_week_slots'],
         'sch_satur' => ['WP_sch_satur_ctrl', 'WP_sch_satur_slots'],
@@ -150,9 +147,7 @@ class WattpilotFlex extends IPSModule
         $this->SetBuffer('IdentCache', '');
         $this->ConnectParent(self::SPLITTER_GUID);
         $this->RegisterAttributeString('VariableMap', '{}');
-        // Scheduler-Zeiten persistent speichern (für Steuerung ohne erneutes Auslesen)
         $this->RegisterAttributeString('SchedulerData', '{}');
-
         $this->RegisterPropertyBoolean('ShowCurrent', false);
         $this->RegisterPropertyBoolean('ShowVoltage', false);
         $this->RegisterPropertyBoolean('ShowPowerFactor', false);
