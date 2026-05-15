@@ -16,6 +16,35 @@ class WattpilotSplitter extends IPSModule
     private const WS_SEND_GUID    = '{79827379-F36E-4ADA-8A95-5F8D1DC92FA9}';
     private const CHILD_DATA_GUID = '{2F5B8A4C-9D3E-4F6A-AB7C-8D9E0F1A2B3C}';
 
+    // Reconnect-Konfiguration
+    private const RECONNECT_INITIAL_DELAY = 5000;   // 5s erster Versuch
+    private const RECONNECT_MAX_DELAY     = 60000;  // 60s maximales Intervall
+    private const RECONNECT_BACKOFF       = 2.0;    // Verdopplung pro Versuch
+    private const RECONNECT_AFTER_REBOOT  = 30000;  // 30s Wartezeit nach Reboot-Befehl
+
+    // Maximale Größe des FullStatus-Buffers (Anzahl Keys)
+    private const FULLSTATUS_MAX_KEYS = 200;
+
+    // Nur diese Keys im FullStatus speichern (relevante Keys)
+    private const FULLSTATUS_RELEVANT_KEYS = [
+        'car', 'alw', 'frc', 'lmo', 'psm', 'amp', 'acu', 'ama', 'mca', 'pnp',
+        'fsp', 'modelStatus', 'err', 'adi', 'trx', 'dwo',
+        'al1', 'al2', 'al3', 'al4', 'al5', 'clp',
+        'fte', 'ftt',
+        'ocppe', 'ocppu', 'ocpph', 'ocpps',
+        'wan', 'wak',
+        'ust', 'lck', 'ffb', 'cus',
+        'wh', 'eto', 'etop',
+        'nrg', 'fhz',
+        'fbuf_pGrid', 'fbuf_pPv', 'fbuf_pAkku', 'fbuf_akkuSOC',
+        'fst', 'fup', 'po', 'sh', 'psh', 'spl3',
+        'awc', 'awp', 'ful',
+        'sch_week', 'sch_satur', 'sch_sund',
+        'fwv', 'sse', 'var', 'rbc', 'rbt', 'rssi',
+        'wst', 'wsms', 'host', 'fna',
+        'pha', 'tma',
+    ];
+
     public function Create()
     {
         parent::Create();
@@ -35,6 +64,9 @@ class WattpilotSplitter extends IPSModule
         $this->SetBuffer('BcryptHash', '');
         $this->SetBuffer('FullStatus', '{}');
         $this->SetBuffer('DeltaBuffer', '{}');
+        $this->SetBuffer('FrameBuffer', '');
+        $this->SetBuffer('ReconnectAttempts', '0');
+        $this->SetBuffer('LastRebootCmd', '0');
 
         $this->RequireParent(self::WS_CLIENT_GUID);
         $this->RegisterMessage(0, IPS_KERNELMESSAGE);
@@ -47,6 +79,8 @@ class WattpilotSplitter extends IPSModule
         $this->SetBuffer('State', (string)self::STATE_WAIT_HELLO);
         $this->SetBuffer('FullStatus', '{}');
         $this->SetBuffer('DeltaBuffer', '{}');
+        $this->SetBuffer('FrameBuffer', '');
+        $this->SetBuffer('ReconnectAttempts', '0');
 
         $cID = $this->GetConnectionID();
         if ($cID > 0 && @IPS_InstanceExists($cID)) {
@@ -63,14 +97,15 @@ class WattpilotSplitter extends IPSModule
             return;
         }
 
-        // ÄNDERUNG: UpdateConfigurationForParent() entfernt – GetConfigurationForParent() reicht
-        $interval = $this->ReadPropertyInteger('ReconnectInterval');
-        $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
-
         $updateInterval = $this->ReadPropertyInteger('UpdateInterval');
         $this->SetTimerInterval('WP_UpdateTimer', $updateInterval * 1000);
 
-        $this->SetStatus(self::STATUS_ERROR);
+        // Start mit normalem Reconnect-Intervall
+        $interval = $this->ReadPropertyInteger('ReconnectInterval');
+        $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
+
+        // Punkt 6: STATUS_OFFLINE statt STATUS_ERROR beim Start
+        $this->SetStatus(self::STATUS_OFFLINE);
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -82,6 +117,7 @@ class WattpilotSplitter extends IPSModule
             $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
             $updateInterval = $this->ReadPropertyInteger('UpdateInterval');
             $this->SetTimerInterval('WP_UpdateTimer', $updateInterval * 1000);
+            return;
         }
 
         if ($Message == IM_CHANGESTATUS && $SenderID == $this->GetConnectionID()) {
@@ -89,19 +125,47 @@ class WattpilotSplitter extends IPSModule
             $this->SendDebug('MessageSink', "Parent Status → $newStatus", 0);
 
             if ($newStatus >= 200) {
+                // Verbindung verloren
+                $previousState = (int)$this->GetBuffer('State');
                 $this->SetBuffer('State', (string)self::STATE_WAIT_HELLO);
+                $this->SetBuffer('FrameBuffer', '');
                 $this->SetStatus(self::STATUS_ERROR);
-                $this->SetTimerInterval('WP_ReconnectTimer', 10000);
+
+                if ($previousState === self::STATE_CONNECTED || (int)$this->GetBuffer('ReconnectAttempts') === 0) {
+                    $this->scheduleReconnect();
+                }
             } elseif ($newStatus == 102) {
+                // Parent ist wieder aktiv (WebSocket verbunden)
+                $this->SendDebug('MessageSink', 'Parent aktiv – warte auf Hello', 0);
                 $interval = $this->ReadPropertyInteger('ReconnectInterval');
                 $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
             }
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Timer: Gebündelte Messwerte pushen
-    // ══════════════════════════════════════════════════════════════════════════
+    /**
+     * Berechnet das nächste Reconnect-Intervall mit Backoff und setzt den Timer.
+     */
+    private function scheduleReconnect(): void
+    {
+        $attempts = (int)$this->GetBuffer('ReconnectAttempts');
+        $lastReboot = (int)$this->GetBuffer('LastRebootCmd');
+        $now = time();
+
+        // Nach einem Reboot-Befehl: längere Wartezeit für ersten Versuch
+        if ($lastReboot > 0 && ($now - $lastReboot) < 60) {
+            $delay = self::RECONNECT_AFTER_REBOOT;
+            $this->SendDebug('Reconnect', "Nach Reboot: warte {$delay}ms", 0);
+            $this->SetBuffer('LastRebootCmd', '0');
+        } else {
+            // Exponentielles Backoff
+            $delay = (int)(self::RECONNECT_INITIAL_DELAY * pow(self::RECONNECT_BACKOFF, min($attempts, 5)));
+            $delay = min($delay, self::RECONNECT_MAX_DELAY);
+        }
+
+        $this->SendDebug('Reconnect', "Nächster Versuch in {$delay}ms (Attempt #{$attempts})", 0);
+        $this->SetTimerInterval('WP_ReconnectTimer', $delay);
+    }
 
     public function PushUpdate(): void
     {
@@ -119,14 +183,9 @@ class WattpilotSplitter extends IPSModule
             return;
         }
 
-        // Buffer leeren BEVOR gesendet wird
         $this->SetBuffer('DeltaBuffer', '{}');
         $this->SendToChildren('deltaStatus', $delta);
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Parent-Konfiguration
-    // ══════════════════════════════════════════════════════════════════════════
 
     public function GetConfigurationForParent()
     {
@@ -137,37 +196,55 @@ class WattpilotSplitter extends IPSModule
         return json_encode(['URL' => "ws://{$host}/ws", 'Active' => true]);
     }
 
-    // ÄNDERUNG: UpdateConfigurationForParent() komplett entfernt
-
     private function GetConnectionID(): int
     {
         $instance = @IPS_GetInstance($this->InstanceID);
-        if ($instance === false) return 0;
+        if ($instance === false) {
+            return 0;
+        }
         return (int)($instance['ConnectionID'] ?? 0);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // Datenempfang vom WebSocket Client
+    // Punkt 1: Frame-Buffer für fragmentierte WebSocket-Nachrichten
     // ══════════════════════════════════════════════════════════════════════════
 
     public function ReceiveData($JSONString)
     {
-        $data    = json_decode($JSONString, true);
+        $data = json_decode($JSONString, true);
         $payload = $data['Buffer'] ?? '';
-        if ($payload === '') return '';
+        if ($payload === '') {
+            return '';
+        }
 
-        $this->SendDebug('RX', $payload, 0);
+        // Frame-Buffer: Fragmentierte Nachrichten zusammensetzen
+        $buffer = $this->GetBuffer('FrameBuffer') . $payload;
 
-        $msg = @json_decode($payload, true);
-        if (!is_array($msg)) return '';
+        $msg = @json_decode($buffer, true);
+        if ($msg === null && json_last_error() !== JSON_ERROR_NONE) {
+            // JSON unvollständig – weiter sammeln
+            // Sicherheit: Buffer begrenzen (max 64KB)
+            if (strlen($buffer) > 65536) {
+                $this->SendDebug('RX', 'Frame-Buffer Overflow – verwerfe', 0);
+                $this->SetBuffer('FrameBuffer', '');
+            } else {
+                $this->SetBuffer('FrameBuffer', $buffer);
+                $this->SendDebug('RX', 'Fragment empfangen (' . strlen($buffer) . ' Bytes im Buffer)', 0);
+            }
+            return '';
+        }
+
+        // Vollständige Nachricht empfangen
+        $this->SetBuffer('FrameBuffer', '');
+        $this->SendDebug('RX', $buffer, 0);
+
+        if (!is_array($msg)) {
+            return '';
+        }
 
         $this->handleMessage($msg);
         return '';
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // ForwardData von Child
-    // ══════════════════════════════════════════════════════════════════════════
 
     public function ForwardData($JSONString)
     {
@@ -180,6 +257,13 @@ class WattpilotSplitter extends IPSModule
                 if ((int)$this->GetBuffer('State') !== self::STATE_CONNECTED) {
                     return json_encode(['status' => 'error', 'message' => 'not connected']);
                 }
+
+                // Reboot-Befehl erkennen und Zeitstempel merken
+                if (isset($message['key']) && $message['key'] === 'rst') {
+                    $this->SetBuffer('LastRebootCmd', (string)time());
+                    $this->SendDebug('CMD', 'Reboot-Befehl erkannt – setze Reconnect-Delay', 0);
+                }
+
                 if ($this->GetBuffer('Secured') === '1') {
                     $message = $this->buildSecuredMsg($message);
                 }
@@ -202,10 +286,6 @@ class WattpilotSplitter extends IPSModule
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Nachrichten-Handler
-    // ══════════════════════════════════════════════════════════════════════════
-
     private function handleMessage(array $msg): void
     {
         $type = $msg['type'] ?? '';
@@ -224,6 +304,8 @@ class WattpilotSplitter extends IPSModule
                 $this->SendDebug('Auth', 'FEHLER: ' . ($msg['message'] ?? 'unbekannt'), 0);
                 $this->SetBuffer('State', (string)self::STATE_WAIT_HELLO);
                 $this->SetStatus(self::STATUS_AUTH_ERROR);
+                // Bei Auth-Fehler NICHT reconnecten (falsches Passwort)
+                $this->SetTimerInterval('WP_ReconnectTimer', 0);
                 break;
             case 'fullStatus':
                 $this->handleFullStatus($msg);
@@ -257,24 +339,45 @@ class WattpilotSplitter extends IPSModule
         $this->performAuth($msg['token1'] ?? '', $msg['token2'] ?? '');
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // Punkt 3: FullStatus-Buffer begrenzen – nur relevante Keys speichern
+    // ══════════════════════════════════════════════════════════════════════════
+
     private function handleFullStatus(array $msg): void
     {
         $statusData    = $msg['status'] ?? [];
         $partial       = $msg['partial'] ?? false;
         $currentStatus = json_decode($this->GetBuffer('FullStatus'), true) ?: [];
-        $currentStatus = array_merge($currentStatus, $statusData);
+
+        // Nur relevante Keys mergen
+        $filteredData = $this->filterRelevantKeys($statusData);
+        $currentStatus = array_merge($currentStatus, $filteredData);
+
+        // Zusätzliche Sicherheit: Maximale Anzahl Keys begrenzen
+        if (count($currentStatus) > self::FULLSTATUS_MAX_KEYS) {
+            $this->SendDebug('FullStatus', 'Buffer-Limit erreicht (' . count($currentStatus) . ' Keys) – kürze', 0);
+            $currentStatus = array_slice($currentStatus, -self::FULLSTATUS_MAX_KEYS, null, true);
+        }
+
         $this->SetBuffer('FullStatus', json_encode($currentStatus));
 
         if (!$partial) {
             $this->SetBuffer('State', (string)self::STATE_CONNECTED);
             $this->SetStatus(self::STATUS_OK);
+
+            // Reconnect-Counter zurücksetzen bei erfolgreicher Verbindung
+            $this->SetBuffer('ReconnectAttempts', '0');
+
+            // Normales Monitoring-Intervall wiederherstellen
+            $interval = $this->ReadPropertyInteger('ReconnectInterval');
+            $this->SetTimerInterval('WP_ReconnectTimer', $interval * 1000);
+
             $this->SendDebug('WS', 'FullStatus komplett (' . count($currentStatus) . ' Keys) – VERBUNDEN', 0);
 
             $host   = $this->ReadPropertyString('Host');
             $serial = $this->GetBuffer('Serial');
             $this->SetSummary($host . ' (#' . $serial . ')');
 
-            // fullStatus sofort an Children
             $this->SendToChildren('fullStatus', $currentStatus);
             $this->SetBuffer('DeltaBuffer', '{}');
         }
@@ -284,17 +387,30 @@ class WattpilotSplitter extends IPSModule
     {
         $statusData = $msg['status'] ?? [];
 
-        // FullStatus aktuell halten
         $currentStatus = json_decode($this->GetBuffer('FullStatus'), true) ?: [];
-        $currentStatus = array_merge($currentStatus, $statusData);
+        $filteredData = $this->filterRelevantKeys($statusData);
+        $currentStatus = array_merge($currentStatus, $filteredData);
         $this->SetBuffer('FullStatus', json_encode($currentStatus));
 
         if ((int)$this->GetBuffer('State') === self::STATE_CONNECTED) {
-            // In DeltaBuffer sammeln – Timer pusht gebündelt
             $deltaBuffer = json_decode($this->GetBuffer('DeltaBuffer'), true) ?: [];
-            $deltaBuffer = array_merge($deltaBuffer, $statusData);
+            $deltaBuffer = array_merge($deltaBuffer, $filteredData);
             $this->SetBuffer('DeltaBuffer', json_encode($deltaBuffer));
         }
+    }
+
+    /**
+     * Filtert nur die relevanten Keys aus den Status-Daten.
+     */
+    private function filterRelevantKeys(array $statusData): array
+    {
+        $filtered = [];
+        foreach ($statusData as $key => $value) {
+            if (in_array($key, self::FULLSTATUS_RELEVANT_KEYS, true)) {
+                $filtered[$key] = $value;
+            }
+        }
+        return $filtered;
     }
 
     private function handleResponse(array $msg): void
@@ -304,19 +420,15 @@ class WattpilotSplitter extends IPSModule
 
         if (isset($msg['status'])) {
             $currentStatus = json_decode($this->GetBuffer('FullStatus'), true) ?: [];
-            $currentStatus = array_merge($currentStatus, $msg['status']);
+            $filteredData = $this->filterRelevantKeys($msg['status']);
+            $currentStatus = array_merge($currentStatus, $filteredData);
             $this->SetBuffer('FullStatus', json_encode($currentStatus));
 
             if ((int)$this->GetBuffer('State') === self::STATE_CONNECTED) {
-                // Response auf Steuerbefehl → SOFORT pushen
                 $this->SendToChildren('deltaStatus', $msg['status']);
             }
         }
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Daten an Children
-    // ══════════════════════════════════════════════════════════════════════════
 
     private function SendToChildren(string $type, array $status): void
     {
@@ -328,10 +440,6 @@ class WattpilotSplitter extends IPSModule
             ]),
         ]));
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Authentifizierung
-    // ══════════════════════════════════════════════════════════════════════════
 
     private function performAuth(string $token1, string $token2): void
     {
@@ -366,16 +474,25 @@ class WattpilotSplitter extends IPSModule
         $off = 0;
         $rs  = [];
         while ($off < $length) {
-            $c1   = $b[$off] & 0xff; $off++;
+            $c1   = $b[$off] & 0xff;
+            $off++;
             $rs[] = $BASE64[($c1 >> 2) & 0x3f];
             $c1   = ($c1 & 0x03) << 4;
-            if ($off >= $length) { $rs[] = $BASE64[$c1 & 0x3f]; break; }
-            $c2   = $b[$off] & 0xff; $off++;
+            if ($off >= $length) {
+                $rs[] = $BASE64[$c1 & 0x3f];
+                break;
+            }
+            $c2   = $b[$off] & 0xff;
+            $off++;
             $c1  |= ($c2 >> 4) & 0x0f;
             $rs[] = $BASE64[$c1 & 0x3f];
             $c1   = ($c2 & 0x0f) << 2;
-            if ($off >= $length) { $rs[] = $BASE64[$c1 & 0x3f]; break; }
-            $c2   = $b[$off] & 0xff; $off++;
+            if ($off >= $length) {
+                $rs[] = $BASE64[$c1 & 0x3f];
+                break;
+            }
+            $c2   = $b[$off] & 0xff;
+            $off++;
             $c1  |= ($c2 >> 6) & 0x03;
             $rs[] = $BASE64[$c1 & 0x3f];
             $rs[] = $BASE64[$c2 & 0x3f];
@@ -421,43 +538,81 @@ class WattpilotSplitter extends IPSModule
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // Öffentliche Funktionen
+    // Punkt 2: Reconnect-Logik
     // ══════════════════════════════════════════════════════════════════════════
 
-    // ÄNDERUNG: Reconnect() nutzt nur noch Active-Toggle, keine URL-Konfiguration mehr
     public function Reconnect(): void
     {
-        $this->SendDebug('WS', 'Reconnect', 0);
-        $this->SetBuffer('BcryptHash', '');
+        if ($this->GetBuffer('ReconnectLock') === '1') {
+            $this->SendDebug('Reconnect', 'Bereits aktiv – überspringe', 0);
+            return;
+        }
+        $this->SetBuffer('ReconnectLock', '1');
+
+        $attempts = (int)$this->GetBuffer('ReconnectAttempts') + 1;
+        $this->SetBuffer('ReconnectAttempts', (string)$attempts);
+
+        $this->SendDebug('Reconnect', "Versuch #$attempts", 0);
+
         $this->SetBuffer('State', (string)self::STATE_WAIT_HELLO);
         $this->SetBuffer('FullStatus', '{}');
         $this->SetBuffer('DeltaBuffer', '{}');
 
         $cID = $this->GetConnectionID();
         if ($cID > 0 && @IPS_InstanceExists($cID)) {
-            @IPS_SetProperty($cID, 'Active', false);
-            @IPS_ApplyChanges($cID);
-            IPS_Sleep(1000);
-            @IPS_SetProperty($cID, 'Active', true);
+            // Neuverbindung erzwingen OHNE Properties des Parents direkt zu ändern
+            // ApplyChanges liest GetConfigurationForParent() erneut und reconnected
             @IPS_ApplyChanges($cID);
         }
+
+        $this->SetBuffer('ReconnectLock', '0');
+        $this->scheduleReconnect();
     }
+
 
     public function CheckConnection(): void
     {
         $state = (int)$this->GetBuffer('State');
-        if ($state === self::STATE_CONNECTED) return;
-        $this->SendDebug('WS', "State=$state – Reconnect", 0);
+
+        if ($state === self::STATE_CONNECTED) {
+            // Alles OK – prüfe ob der Parent noch lebt
+            $cID = $this->GetConnectionID();
+            if ($cID > 0) {
+                $parentInstance = @IPS_GetInstance($cID);
+                $parentStatus = $parentInstance['InstanceStatus'] ?? 999;
+                if ($parentStatus != 102) {
+                    $this->SendDebug('Check', "Parent Status $parentStatus aber State=CONNECTED – korrigiere", 0);
+                    $this->SetBuffer('State', (string)self::STATE_WAIT_HELLO);
+                    $this->SetStatus(self::STATUS_ERROR);
+                    $this->Reconnect();
+                }
+            }
+            return;
+        }
+
+        // Nicht verbunden → Reconnect versuchen
+        $this->SendDebug('Check', "State=$state – starte Reconnect", 0);
         $this->Reconnect();
     }
 
     public function TestConnection(): void
     {
         $state = (int)$this->GetBuffer('State');
+        $attempts = (int)$this->GetBuffer('ReconnectAttempts');
+
         if ($state === self::STATE_CONNECTED) {
             echo "✅ Verbindung zum Wattpilot steht! (Serial: " . $this->GetBuffer('Serial') . ")";
         } else {
-            echo "❌ Nicht verbunden (State: $state). Prüfe IP-Adresse und Passwort.";
+            $stateNames = [
+                0 => 'Warte auf Hello',
+                1 => 'Warte auf Auth',
+                2 => 'Verbunden'
+            ];
+            $stateName = $stateNames[$state] ?? "Unbekannt ($state)";
+            echo "❌ Nicht verbunden\n";
+            echo "   Status: $stateName\n";
+            echo "   Reconnect-Versuche: $attempts\n";
+            echo "   Prüfe IP-Adresse und Passwort.";
         }
     }
 }

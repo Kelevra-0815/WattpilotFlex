@@ -2,28 +2,194 @@
     "elements": [
         {
             "type": "Label",
-            "caption": "☕ Gefällt dir dieses Modul? Unterstütze die Entwicklung:"
+            "caption": "Gefällt Ihnen dieses Modul? Unterstütze die Entwicklung:"
         },
         {
-            "type": "Button",
-            "caption": "💛 PayPal Donate",
+            "type": "Image",
+            "image": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjMiIGhlaWdodD0iMjAiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iUGF5UGFsOiBTcGVuZGVuIj4KICA8dGl0bGU+UGF5UGFsOiBTcGVuZGVuPC90aXRsZT4KICA8ZmlsdGVyIGlkPSJibHVyIj4KICAgIDxmZUdhdXNzaWFuQmx1ciBpbj0iU291cmNlR3JhcGhpYyIgc3RkRGV2aWF0aW9uPSIxNiI+PC9mZUdhdXNzaWFuQmx1cj4KICA8L2ZpbHRlcj4KICA8bGluZWFyR3JhZGllbnQgaWQ9InMiIHgyPSIwIiB5Mj0iMTAwJSI+CiAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNiYmIiIHN0b3Atb3BhY2l0eT0iLjEiPjwvc3RvcD4KICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1vcGFjaXR5PSIuMSI+PC9zdG9wPgogIDwvbGluZWFyR3JhZGllbnQ+CiAgPGNsaXBQYXRoIGlkPSJyIj4KICAgIDxyZWN0IHdpZHRoPSIxMjMiIGhlaWdodD0iMjAiIHJ4PSIzIiBmaWxsPSIjZmZmIj48L3JlY3Q+CiAgPC9jbGlwUGF0aD4KICA8ZyBjbGlwLXBhdGg9InVybCgjcikiPgogICAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjIwIiBmaWxsPSIjNTU1Ij48L3JlY3Q+CiAgICA8cmVjdCB4PSI2NCIgd2lkdGg9IjU5IiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDA3ZWM2Ij48L3JlY3Q+CiAgICA8cmVjdCB3aWR0aD0iMTIzIiBoZWlnaHQ9IjIwIiBmaWxsPSJ1cmwoI3MpIj48L3JlY3Q+CiAgPC9nPgogIDxnIGZpbGw9IiNmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJWZXJkYW5hLEdlbmV2YSxEZWphVnUgU2FucyxzYW5zLXNlcmlmIiB0ZXh0LXJlbmRlcmluZz0iZ2VvbWV0cmljUHJlY2lzaW9uIiBmb250LXNpemU9IjExMCI+CiAgICA8aW1hZ2UgeD0iNSIgeT0iMyIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0Ij48L2ltYWdlPgogICAgPHRleHQgYXJpYS1oaWRkZW49InRydWUiIHg9IjQxNSIgeT0iMTUwIiBmaWxsPSIjMDEwMTAxIiBmaWxsLW9wYWNpdHk9Ii44MCIgZmlsdGVyPSJ1cmwoI2JsdXIpIiB0cmFuc2Zvcm09InNjYWxlKC4xKSIgdGV4dExlbmd0aD0iMzcwIj5QYXlQYWw8L3RleHQ+CiAgICA8dGV4dCBhcmlhLWhpZGRlbj0idHJ1ZSIgeD0iNDE1IiB5PSIxNTAiIGZpbGw9IiMwMTAxMDEiIGZpbGwtb3BhY2l0eT0iLjMiIHRyYW5zZm9ybT0ic2NhbGUoLjEpIiB0ZXh0TGVuZ3RoPSIzNzAiPlBheVBhbDwvdGV4dD4KICAgIDx0ZXh0IHg9IjQxNSIgeT0iMTQwIiB0cmFuc2Zvcm09InNjYWxlKC4xKSIgZmlsbD0iI2ZmZiIgdGV4dExlbmd0aD0iMzcwIj5QYXlQYWw8L3RleHQ+CiAgICA8dGV4dCBhcmlhLWhpZGRlbj0idHJ1ZSIgeD0iOTI1IiB5PSIxNTAiIGZpbGw9IiMwMTAxMDEiIGZpbGwtb3BhY2l0eT0iLjgwIiBmaWx0ZXI9InVybCgjYmx1cikiIHRyYW5zZm9ybT0ic2NhbGUoLjEpIiB0ZXh0TGVuZ3RoPSI0OTAiPlNwZW5kZW48L3RleHQ+CiAgICA8dGV4dCBhcmlhLWhpZGRlbj0idHJ1ZSIgeD0iOTI1IiB5PSIxNTAiIGZpbGw9IiMwMTAxMDEiIGZpbGwtb3BhY2l0eT0iLjMiIHRyYW5zZm9ybT0ic2NhbGUoLjEpIiB0ZXh0TGVuZ3RoPSI0OTAiPlNwZW5kZW48L3RleHQ+CiAgICA8dGV4dCB4PSI5MjUiIHk9IjE0MCIgdHJhbnNmb3JtPSJzY2FsZSguMSkiIGZpbGw9IiNmZmYiIHRleHRMZW5ndGg9IjQ5MCI+U3BlbmRlbjwvdGV4dD4KICA8L2c+Cjwvc3ZnPgo=",
             "onClick": "echo 'https://www.paypal.com/donate/?hosted_button_id=4HVXKG7QKF4WW';"
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Optionale Variablen",
+            "caption": "Optionale Variablen – Messwerte",
             "expanded": true,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Wähle welche zusätzlichen Variablen erstellt werden sollen.\nDeaktivierte Variablen werden beim Speichern gelöscht."
+                    "caption": "Wähle welche zusätzlichen Messwert-Variablen erstellt werden sollen.\nDeaktivierte Variablen werden beim Speichern gelöscht."
                 },
                 { "name": "ShowCurrent",     "type": "CheckBox", "caption": "Strom (L1, L2, L3)" },
                 { "name": "ShowVoltage",     "type": "CheckBox", "caption": "Spannung (L1, L2, L3)" },
+                { "name": "ShowPowerFactor", "type": "CheckBox", "caption": "Leistungsfaktor (L1, L2, L3)" },
                 { "name": "ShowTemperature", "type": "CheckBox", "caption": "Temperaturen" },
-                { "name": "ShowPhaseDetail", "type": "CheckBox", "caption": "Phasen-Details (aktive Phasen L1/L2/L3)" },
-                { "name": "ShowSystem",      "type": "CheckBox", "caption": "System (Firmware, Seriennummer, Neustarts, Laufzeit, WLAN)" },
-                { "name": "ShowExtras",      "type": "CheckBox", "caption": "Extras (Kabel-Limit, 16A-Adapter, Transaktion, Energie-Limit)" }
+                { "name": "ShowFrequency",   "type": "CheckBox", "caption": "Netzfrequenz" },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "ℹ️ Dokumentation: Messwerte",
+                    "expanded": false,
+                    "items": [
+                        { "type": "Label", "caption": "Diese Werte werden automatisch vom Wattpilot übertragen." },
+                        { "type": "Label", "caption": "Variablen: WP_nrg_il1–il3 (A), WP_nrg_ul1–ul3 (V), WP_nrg_pfl1–pfl3, WP_tma1–4 (°C), WP_fhz (Hz)" },
+                        { "type": "Label", "caption": "Immer aktiv: WP_nrg_ptotal, WP_nrg_pl1–pl3 (Leistung W), WP_wh, WP_eto, WP_etop (Energie Wh)" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Optionale Variablen – Laden & Steuerung",
+            "expanded": true,
+            "items": [
+                { "name": "ShowPhaseDetail",     "type": "CheckBox", "caption": "Phasen-Details (aktive Phasen L1/L2/L3)" },
+                { "name": "ShowChargeAdvanced",  "type": "CheckBox", "caption": "Laden erweitert (Max./Min. Strom, Temp.-Limit, Einzelphase erzwungen)" },
+                { "name": "ShowCurrentLevels",   "type": "CheckBox", "caption": "Stromstufen (Adapter-Stufen 1–5, Strom-Presets)" },
+                { "name": "ShowLock",            "type": "CheckBox", "caption": "Verriegelung (Kabelschloss, Status)" },
+                { "name": "ShowExtras",          "type": "CheckBox", "caption": "Extras (Kabel-Limit, 16A-Adapter, Transaktion, Energie-Limit)" },
+                { "name": "ShowScheduler",       "type": "CheckBox", "caption": "Ladeplaner (Zeitpläne Wochentag/Samstag/Sonntag)" },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "ℹ️ Dokumentation: Laden & Steuerung",
+                    "expanded": false,
+                    "items": [
+                        { "type": "Label", "caption": "─── Steuerbare Variablen (direkt im WebFront bedienbar) ───" },
+                        { "type": "Label", "caption": "WP_frc  → Force-Modus (0=Neutral, 1=Aus, 2=Ein)" },
+                        { "type": "Label", "caption": "WP_lmo  → Lademodus (3=Standard, 4=ECO/PV, 5=AutoStop)" },
+                        { "type": "Label", "caption": "WP_psm  → Phasenmodus (0=Auto, 1=1-phasig, 2=3-phasig)" },
+                        { "type": "Label", "caption": "WP_amp  → Ladestrom (6–32 A)" },
+                        { "type": "Label", "caption": "WP_ama  → Max. Strom-Limit (6–32 A)" },
+                        { "type": "Label", "caption": "WP_ust  → Kabelverriegelung (0=Normal, 1=Auto, 2=Immer)" },
+                        { "type": "Label", "caption": "WP_al1–al5 → Adapter-Stromstufen (6–32 A)" },
+                        { "type": "Label", "caption": "" },
+                        { "type": "Label", "caption": "─── Skript-Funktionen ───" },
+                        { "type": "Label", "caption": "WP_SetLadestrom($id, 16);        // Ladestrom auf 16A" },
+                        { "type": "Label", "caption": "WP_SetMaxCurrent($id, 20);       // Max-Limit auf 20A" },
+                        { "type": "Label", "caption": "WP_SetLademodus($id, 4);         // ECO/PV-Überschuss" },
+                        { "type": "Label", "caption": "WP_SetForceModus($id, 2);        // Laden erzwingen" },
+                        { "type": "Label", "caption": "WP_SetPhasenmodus($id, 0);       // Auto" },
+                        { "type": "Label", "caption": "WP_SetUnlockSetting($id, 0);     // Normal" },
+                        { "type": "Label", "caption": "WP_StartLaden($id);              // = Force Ein" },
+                        { "type": "Label", "caption": "WP_StopLaden($id);               // = Force Aus" },
+                        { "type": "Label", "caption": "WP_SetAdapterLevel($id, 1, 10);  // Stufe 1 = 10A" },
+                        { "type": "Label", "caption": "" },
+                        { "type": "Label", "caption": "─── Ladeplaner per Skript ───" },
+                        { "type": "Label", "caption": "WP_SetSchedule($id, 'week', 1, '22:00', '06:00', '00:00', '00:00');" },
+                        { "type": "Label", "caption": "Tage: 'week' = Mo–Fr, 'saturday' = Sa, 'sunday' = So" },
+                        { "type": "Label", "caption": "Modus: 0=Deaktiviert, 1=Erlauben, 2=Sperren, 3=Erlauben+PV, 4=Sperren+PV" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Optionale Variablen – Next Trip & Spezial",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Next Trip: Minimale Ladeenergie und Abfahrtszeit für den nächsten Trip."
+                },
+                { "name": "ShowNextTrip", "type": "CheckBox", "caption": "Next Trip (Energie, Abfahrtszeit)" },
+                {
+                    "type": "Label",
+                    "caption": "─────────────────────────────────────────────────"
+                },
+                {
+                    "type": "Label",
+                    "caption": "OCPP: Open Charge Point Protocol Konfiguration für Backend-Anbindung."
+                },
+                { "name": "ShowOCPP", "type": "CheckBox", "caption": "OCPP (Aktiviert, Server-URL, Heartbeat, Status)" },
+                {
+                    "type": "Label",
+                    "caption": "─────────────────────────────────────────────────"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Hotspot: Konfiguration des Wattpilot-eigenen WLAN Access Points."
+                },
+                { "name": "ShowHotspot", "type": "CheckBox", "caption": "Hotspot (SSID, Passwort)" },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "ℹ️ Dokumentation: Next Trip & Spezial",
+                    "expanded": false,
+                    "items": [
+                        { "type": "Label", "caption": "─── Steuerbare Variablen (WebFront) ───" },
+                        { "type": "Label", "caption": "WP_fte    → Next Trip Energie (Wh)" },
+                        { "type": "Label", "caption": "WP_ftt    → Next Trip Abfahrtszeit (HH:MM)" },
+                        { "type": "Label", "caption": "WP_ocppe  → OCPP aktiviert (an/aus)" },
+                        { "type": "Label", "caption": "WP_ocppu  → OCPP Server-URL" },
+                        { "type": "Label", "caption": "WP_ocpph  → OCPP Heartbeat (Sekunden)" },
+                        { "type": "Label", "caption": "WP_wan    → Hotspot SSID" },
+                        { "type": "Label", "caption": "WP_wak    → Hotspot Passwort" },
+                        { "type": "Label", "caption": "" },
+                        { "type": "Label", "caption": "─── Skript-Funktionen ───" },
+                        { "type": "Label", "caption": "WP_SetNextTripEnergy($id, 20000);   // 20 kWh" },
+                        { "type": "Label", "caption": "WP_SetNextTripTime($id, '07:00');    // Abfahrt 7 Uhr" },
+                        { "type": "Label", "caption": "WP_SetOCPPEnabled($id, true);" },
+                        { "type": "Label", "caption": "WP_SetOCPPUrl($id, 'ws://server/ocpp');" },
+                        { "type": "Label", "caption": "WP_SetOCPPHeartbeat($id, 60);" },
+                        { "type": "Label", "caption": "WP_SetHotspotName($id, 'MeinWP');" },
+                        { "type": "Label", "caption": "WP_SetHotspotPassword($id, 'geheim');" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Optionale Variablen – PV & Energie",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Diese Werte sind nur verfügbar wenn ein Fronius Wechselrichter/Smartmeter gekoppelt ist."
+                },
+                { "name": "ShowPV",       "type": "CheckBox", "caption": "PV & Batterie Messwerte (Netz, PV, Batterie, SoC)" },
+                { "name": "ShowPVConfig", "type": "CheckBox", "caption": "PV Einstellungen (Startleistung, Hysteresen, Schwellen)" },
+                { "name": "ShowAwattar",  "type": "CheckBox", "caption": "Awattar / Dynamische Preise" },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "ℹ️ Dokumentation: PV & Energie",
+                    "expanded": false,
+                    "items": [
+                        { "type": "Label", "caption": "Variablen (nur lesbar):" },
+                        { "type": "Label", "caption": "WP_pGrid   → Netzleistung (W, positiv=Bezug, negativ=Einspeisung)" },
+                        { "type": "Label", "caption": "WP_pPv     → PV-Erzeugung (W)" },
+                        { "type": "Label", "caption": "WP_pAkku   → Batterie (W, positiv=Entlade, negativ=Lade)" },
+                        { "type": "Label", "caption": "WP_akkuSOC → Batterie-Ladestand (%)" },
+                        { "type": "Label", "caption": "" },
+                        { "type": "Label", "caption": "PV-Einstellungen per Skript:" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'fst', 1400);  // Startleistung 1400W" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'fup', true);  // PV-Überschuss aktivieren" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'po', -300);   // Prio-Offset" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'sh', 200);    // Stop-Hysterese" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'psh', 500);   // Phasen-Hysterese" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'spl3', 4200); // 3-Phasen Schwelle" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Optionale Variablen – System",
+            "expanded": false,
+            "items": [
+                { "name": "ShowSystem",  "type": "CheckBox", "caption": "System (Firmware, Seriennummer, Neustarts, Laufzeit)" },
+                { "name": "ShowNetwork", "type": "CheckBox", "caption": "Netzwerk (WiFi-Status, Hostname, Signal)" },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "ℹ️ Dokumentation: System & Allgemein",
+                    "expanded": false,
+                    "items": [
+                        { "type": "Label", "caption": "─── Allgemeine Skript-Funktionen ───" },
+                        { "type": "Label", "caption": "WP_UpdateStatus($id);             // Status manuell aktualisieren" },
+                        { "type": "Label", "caption": "WP_Reboot($id);                   // Wattpilot neu starten" },
+                        { "type": "Label", "caption": "WP_SetWPValue($id, 'key', value); // Beliebigen API-Key setzen" },
+                        { "type": "Label", "caption": "" },
+                        { "type": "Label", "caption": "─── Splitter-Funktionen ───" },
+                        { "type": "Label", "caption": "WPSP_Reconnect($id);              // Verbindung neu aufbauen" },
+                        { "type": "Label", "caption": "WPSP_CheckConnection($id);        // Verbindung prüfen" },
+                        { "type": "Label", "caption": "WPSP_TestConnection($id);         // Verbindungstest" }
+                    ]
+                }
             ]
         },
         {
@@ -42,101 +208,44 @@
     ],
     "actions": [
         {
-            "type": "Button",
-            "caption": "Status manuell aktualisieren",
-            "onClick": "WP_UpdateStatus($id);"
-        },
-        {
-            "type": "Label",
-            "caption": "─── Lademodus ───────────────────────────────"
-        },
-        {
             "type": "RowLayout",
             "items": [
                 {
-                    "type": "Select",
-                    "name": "SetLademodus",
-                    "caption": "Lademodus",
-                    "options": [
-                        { "caption": "Standard", "value": 3 },
-                        { "caption": "ECO / PV-Überschuss", "value": 4 },
-                        { "caption": "AutoStop", "value": 5 }
-                    ]
+                    "type": "Button",
+                    "caption": "🔄 Status aktualisieren",
+                    "onClick": "WP_UpdateStatus($id);"
                 },
                 {
                     "type": "Button",
-                    "caption": "Anwenden",
-                    "onClick": "WP_SetLademodus($id, (int)$SetLademodus);"
+                    "caption": "🔄 Wattpilot Reboot",
+                    "onClick": "if(WP_Reboot($id)) { echo '✅ Reboot-Befehl gesendet!'; } else { echo '❌ Fehler beim Senden.'; }",
+                    "confirm": "Soll der Wattpilot wirklich neu gestartet werden?"
                 }
             ]
         },
         {
             "type": "Label",
-            "caption": "─── Force-Modus ─────────────────────────────"
+            "caption": "─── Beliebigen API-Key setzen ───"
         },
         {
             "type": "RowLayout",
             "items": [
                 {
-                    "type": "Select",
-                    "name": "SetForceModus",
-                    "caption": "Force-Modus",
-                    "options": [
-                        { "caption": "Neutral", "value": 0 },
-                        { "caption": "Aus", "value": 1 },
-                        { "caption": "Ein", "value": 2 }
-                    ]
+                    "type": "ValidationTextBox",
+                    "name": "SetKey",
+                    "caption": "Key",
+                    "placeholder": "amp"
+                },
+                {
+                    "type": "ValidationTextBox",
+                    "name": "SetValue",
+                    "caption": "Value",
+                    "placeholder": "16"
                 },
                 {
                     "type": "Button",
-                    "caption": "Anwenden",
-                    "onClick": "WP_SetForceModus($id, (int)$SetForceModus);"
-                }
-            ]
-        },
-        {
-            "type": "Label",
-            "caption": "─── Ladestrom ───────────────────────────────"
-        },
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "NumberSpinner",
-                    "name": "SetLadestrom",
-                    "caption": "Ladestrom",
-                    "minimum": 6,
-                    "maximum": 32,
-                    "suffix": "A"
-                },
-                {
-                    "type": "Button",
-                    "caption": "Anwenden",
-                    "onClick": "WP_SetLadestrom($id, (int)$SetLadestrom);"
-                }
-            ]
-        },
-        {
-            "type": "Label",
-            "caption": "─── Phasenmodus ─────────────────────────────"
-        },
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "Select",
-                    "name": "SetPhasenmodus",
-                    "caption": "Phasenmodus",
-                    "options": [
-                        { "caption": "Auto", "value": 0 },
-                        { "caption": "1-phasig", "value": 1 },
-                        { "caption": "3-phasig", "value": 2 }
-                    ]
-                },
-                {
-                    "type": "Button",
-                    "caption": "Anwenden",
-                    "onClick": "WP_SetPhasenmodus($id, (int)$SetPhasenmodus);"
+                    "caption": "Senden",
+                    "onClick": "$v = $SetValue; if(is_numeric($v)) { $v = strpos($v,'.')!==false ? (float)$v : (int)$v; } elseif($v==='true') { $v=true; } elseif($v==='false') { $v=false; } if(WP_SetWPValue($id, $SetKey, $v)) { echo '✅ Gesendet: '.$SetKey.' = '.json_encode($v); } else { echo '❌ Fehler'; }"
                 }
             ]
         }
