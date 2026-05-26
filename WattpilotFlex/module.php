@@ -205,14 +205,9 @@ class WattpilotFlex extends IPSModule
         $this->RegisterPropertyBoolean('LogEnergy', false);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Punkt 10: Destroy() – eigene InstanceID aus der Zählung ausschließen
-    // ══════════════════════════════════════════════════════════════════════════
-
     public function Destroy()
     {
         $instances = IPS_GetInstanceListByModuleID('{8F5E8A3C-7D2A-4B1E-9F6C-2E4A8B3D5F7E}');
-        // Eigene InstanceID ausschließen, da sie während Destroy() noch in der Liste ist
         $otherInstances = array_filter($instances, fn($id) => $id !== $this->InstanceID);
 
         if (count($otherInstances) === 0) {
@@ -237,7 +232,6 @@ class WattpilotFlex extends IPSModule
         $this->SetBuffer('IdentCache', '');
         $this->createProfiles();
         $this->createVariableStructure();
-        $this->maintainActionableVariables();
         $this->removeDisabledVariables();
         $this->configureArchiving();
         $this->SetStatus(self::STATUS_OFFLINE);
@@ -245,7 +239,7 @@ class WattpilotFlex extends IPSModule
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // VariableMap – Punkt 9: Lesbare Formatierung
+    // VariableMap – für Runtime-Lookup in Unterkategorien
     // ══════════════════════════════════════════════════════════════════════════
 
     private function getVariableMap(): array
@@ -272,7 +266,6 @@ class WattpilotFlex extends IPSModule
         $this->setVariableMap($m);
     }
 
-    // Punkt 9: Lesbare Formatierung von findVariableByIdent
     private function findVariableByIdent(string $ident): int
     {
         $map = $this->getVariableMap();
@@ -317,38 +310,40 @@ class WattpilotFlex extends IPSModule
         foreach (self::OPTIONAL_GROUPS as $p => $ids) {
             if (!$this->ReadPropertyBoolean($p)) {
                 foreach ($ids as $ident) {
-                    if (in_array($ident, self::ACTIONABLE_IDENTS, true)) {
-                        $id = $this->findVariableByIdent($ident);
-                        if ($id > 0 && IPS_GetObject($id)['ParentID'] !== $this->InstanceID) {
-                            IPS_SetParent($id, $this->InstanceID);
-                        }
-                        if (@$this->GetIDForIdent($ident) !== false) {
-                            $this->UnregisterVariable($ident);
-                        }
-                        $this->unregisterFromMap($ident);
-                    } else {
-                        $id = $this->findVariableByIdent($ident);
-                        if ($id > 0) {
-                            IPS_DeleteVariable($id);
-                            $this->unregisterFromMap($ident);
-                        }
-                    }
+                    $this->removeVariable($ident);
                 }
             }
         }
         $this->removeEmptyCategories($this->InstanceID);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Punkt 4: Sicherheitscheck bei removeEmptyCategories
-    // ══════════════════════════════════════════════════════════════════════════
+    /**
+     * Entfernt eine Variable einheitlich: zurück zur Instanz holen, UnregisterVariable, Map bereinigen.
+     */
+    private function removeVariable(string $ident): void
+    {
+        $id = $this->findVariableByIdent($ident);
+        if ($id > 0) {
+            // Zurück zur Instanz verschieben, damit GetIDForIdent/UnregisterVariable funktioniert
+            $parent = IPS_GetObject($id)['ParentID'];
+            if ($parent !== $this->InstanceID) {
+                IPS_SetParent($id, $this->InstanceID);
+            }
+        }
+
+        // UnregisterVariable entfernt die Variable wenn sie unter der Instanz registriert ist
+        if (@$this->GetIDForIdent($ident) !== false) {
+            $this->UnregisterVariable($ident);
+        }
+
+        $this->unregisterFromMap($ident);
+    }
 
     private function removeEmptyCategories(int $pid): void
     {
         foreach (IPS_GetChildrenIDs($pid) as $cid) {
             $o = IPS_GetObject($cid);
 
-            // Nur Instanzen (Type=1) mit CAT_-Ident verarbeiten
             if ($o['ObjectType'] !== 1) {
                 continue;
             }
@@ -356,7 +351,6 @@ class WattpilotFlex extends IPSModule
                 continue;
             }
 
-            // Sicherheitscheck: Ist es wirklich ein Dummy-Modul?
             $inst = @IPS_GetInstance($cid);
             if ($inst === false) {
                 continue;
@@ -365,10 +359,8 @@ class WattpilotFlex extends IPSModule
                 continue;
             }
 
-            // Rekursiv leere Unter-Kategorien entfernen
             $this->removeEmptyCategories($cid);
 
-            // Nur löschen wenn keine Kinder mehr vorhanden
             if (count(IPS_GetChildrenIDs($cid)) === 0) {
                 IPS_DeleteInstance($cid);
             }
@@ -408,73 +400,65 @@ class WattpilotFlex extends IPSModule
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // Steuerbare Variablen
+    // Variablen-Struktur erstellen (alle Variablen via RegisterVariable)
     // ══════════════════════════════════════════════════════════════════════════
 
-    private function maintainActionableVariables(): void
+    private function createVariableStructure(): void
     {
-        foreach (self::ACTIONABLE_IDENTS as $ident) {
+        $cats = [];
+        foreach (self::VARIABLES as [$ident, $name, $type, $profile, $catPath, $position]) {
             if (!$this->isIdentEnabled($ident)) {
                 continue;
             }
 
-            $varDef = null;
-            foreach (self::VARIABLES as $d) {
-                if ($d[0] === $ident) {
-                    $varDef = $d;
-                    break;
-                }
-            }
-            if ($varDef === null) {
-                continue;
-            }
+            $parentId = $this->getOrCreateCategory($catPath, $cats);
+            $isActionable = in_array($ident, self::ACTIONABLE_IDENTS, true);
 
-            [, $name, $type, $profile, $catPath, $position] = $varDef;
-
-            $existingId = $this->findVariableByIdent($ident);
-            $isNew = ($existingId <= 0);
-            $savedParent = 0;
-
-            if (!$isNew) {
-                $savedParent = IPS_GetObject($existingId)['ParentID'];
-                if ($savedParent !== $this->InstanceID) {
-                    IPS_SetParent($existingId, $this->InstanceID);
-                }
-            }
-
-            switch ($type) {
-                case VARIABLETYPE_BOOLEAN:
-                    $this->RegisterVariableBoolean($ident, $name, $profile, 0);
-                    break;
-                case VARIABLETYPE_INTEGER:
-                    $this->RegisterVariableInteger($ident, $name, $profile, 0);
-                    break;
-                case VARIABLETYPE_FLOAT:
-                    $this->RegisterVariableFloat($ident, $name, $profile, 0);
-                    break;
-                case VARIABLETYPE_STRING:
-                    $this->RegisterVariableString($ident, $name, $profile, 0);
-                    break;
-            }
-            $this->EnableAction($ident);
-            $id = $this->GetIDForIdent($ident);
-
-            if ($isNew) {
-                $targetParent = $this->getCategoryId($catPath);
-                if ($targetParent > 0) {
-                    IPS_SetParent($id, $targetParent);
-                    IPS_SetPosition($id, $position);
-                }
-                $this->registerInMap($ident, $id);
-            } else {
-                if ($savedParent !== $this->InstanceID && $savedParent > 0 && @IPS_ObjectExists($savedParent)) {
-                    IPS_SetParent($id, $savedParent);
-                }
-            }
+            $this->ensureVariable($ident, $name, $type, $profile, $parentId, $position, $isActionable);
         }
     }
 
-    private function getCategoryId(string $catPath): int
+    /**
+     * Erstellt oder aktualisiert eine Variable via RegisterVariable.
+     * Verschiebt sie anschließend in die Zielkategorie.
+     */
+    private function ensureVariable(string $ident, string $name, int $type, string $profile, int $parentId, int $position, bool $actionable): void
+    {
+        // Existierende Variable suchen (könnte in Unterkategorie sein)
+        $existingId = $this->findVariableByIdent($ident);
+
+        if ($existingId > 0) {
+            // Zur Instanz verschieben, damit RegisterVariable sie findet
+            $currentParent = IPS_GetObject($existingId)['ParentID'];
+            if ($currentParent !== $this->InstanceID) {
+                IPS_SetParent($existingId, $this->InstanceID);
+            }
+        }
+
+        // RegisterVariable erstellt/aktualisiert und setzt Profil als Standarddarstellung
+        match ($type) {
+            VARIABLETYPE_BOOLEAN => $this->RegisterVariableBoolean($ident, $name, $profile, $position),
+            VARIABLETYPE_INTEGER => $this->RegisterVariableInteger($ident, $name, $profile, $position),
+            VARIABLETYPE_FLOAT   => $this->RegisterVariableFloat($ident, $name, $profile, $position),
+            VARIABLETYPE_STRING  => $this->RegisterVariableString($ident, $name, $profile, $position),
+        };
+
+        // Aktion aktivieren für steuerbare Variablen
+        if ($actionable) {
+            $this->EnableAction($ident);
+        }
+
+        // In Zielkategorie verschieben
+        $id = $this->GetIDForIdent($ident);
+        IPS_SetParent($id, $parentId);
+        IPS_SetPosition($id, $position);
+        $this->registerInMap($ident, $id);
+    }
+
+    /**
+     * Erstellt oder findet eine Dummy-Kategorie anhand des Pfads.
+     */
+    private function getOrCreateCategory(string $catPath, array &$cats): int
     {
         $parts = explode('.', $catPath);
         $parentId = $this->InstanceID;
@@ -483,19 +467,21 @@ class WattpilotFlex extends IPSModule
 
         foreach ($parts as $part) {
             $catKey .= 'CAT_' . preg_replace('/[^a-zA-Z0-9]/', '_', $part);
-            $id = @IPS_GetObjectIDByIdent($catKey, $parentId);
+            if (!array_key_exists($catKey, $cats)) {
+                $id = @IPS_GetObjectIDByIdent($catKey, $parentId);
 
-            if ($id === false || $id <= 0) {
-                $id = IPS_CreateInstance(self::DUMMY_GUID);
-                IPS_SetParent($id, $parentId);
-                IPS_SetIdent($id, $catKey);
-                IPS_SetName($id, $part);
-                if ($depth === 0 && isset(self::CATEGORY_POSITIONS[$part])) {
-                    IPS_SetPosition($id, self::CATEGORY_POSITIONS[$part]);
+                if ($id === false || $id <= 0) {
+                    $id = IPS_CreateInstance(self::DUMMY_GUID);
+                    IPS_SetParent($id, $parentId);
+                    IPS_SetIdent($id, $catKey);
+                    IPS_SetName($id, $part);
+                    if ($depth === 0 && isset(self::CATEGORY_POSITIONS[$part])) {
+                        IPS_SetPosition($id, self::CATEGORY_POSITIONS[$part]);
+                    }
                 }
+                $cats[$catKey] = (int)$id;
             }
-
-            $parentId = (int)$id;
+            $parentId = $cats[$catKey];
             $depth++;
         }
 
@@ -567,7 +553,7 @@ class WattpilotFlex extends IPSModule
                 $this->SetOCPPHeartbeat((int)$Value);
                 break;
             case 'WP_ocpps':
-                break; // read-only status
+                break;
             case 'WP_wan':
                 $this->SetHotspotName((string)$Value);
                 break;
@@ -644,27 +630,17 @@ class WattpilotFlex extends IPSModule
         return $this->sendCommand($key, $value);
     }
 
-    /**
-     * Startet den Wattpilot neu.
-     */
     public function Reboot(): bool
     {
         $this->SendDebug('CMD', 'Reboot angefordert', 0);
         return $this->sendCommand('rst', true);
     }
 
-    /**
-     * Setzt die minimale Energie für den nächsten Trip (in Wh).
-     */
     public function SetNextTripEnergy(int $energy): bool
     {
         return $this->sendCommand('fte', max(0, $energy));
     }
 
-    /**
-     * Setzt die Abfahrtszeit für den nächsten Trip.
-     * @param string $time Format "HH:MM" oder Sekunden seit Mitternacht als String
-     */
     public function SetNextTripTime(string $time): bool
     {
         if (strpos($time, ':') !== false) {
@@ -676,9 +652,6 @@ class WattpilotFlex extends IPSModule
         return $this->sendCommand('ftt', max(0, min(86399, $seconds)));
     }
 
-    /**
-     * Setzt eine Adapter-Stromstufe (1–5) auf den angegebenen Wert in Ampere.
-     */
     public function SetAdapterLevel(int $level, int $ampere): bool
     {
         if ($level < 1 || $level > 5) {
@@ -687,55 +660,31 @@ class WattpilotFlex extends IPSModule
         return $this->sendCommand('al' . $level, max(6, min(32, $ampere)));
     }
 
-    /**
-     * Aktiviert/deaktiviert OCPP.
-     */
     public function SetOCPPEnabled(bool $enabled): bool
     {
         return $this->sendCommand('ocppe', $enabled);
     }
 
-    /**
-     * Setzt die OCPP Server-URL.
-     */
     public function SetOCPPUrl(string $url): bool
     {
         return $this->sendCommand('ocppu', $url);
     }
 
-    /**
-     * Setzt das OCPP Heartbeat-Intervall in Sekunden.
-     */
     public function SetOCPPHeartbeat(int $seconds): bool
     {
         return $this->sendCommand('ocpph', max(0, $seconds));
     }
 
-    /**
-     * Setzt den Hotspot-Namen (SSID).
-     */
     public function SetHotspotName(string $name): bool
     {
         return $this->sendCommand('wan', $name);
     }
 
-    /**
-     * Setzt das Hotspot-Passwort.
-     */
     public function SetHotspotPassword(string $password): bool
     {
         return $this->sendCommand('wak', $password);
     }
 
-    /**
-     * Setzt den kompletten Zeitplan für einen Tag.
-     * @param string $day 'week', 'saturday' oder 'sunday'
-     * @param int $control 0–4
-     * @param string $r1Start "HH:MM"
-     * @param string $r1End "HH:MM"
-     * @param string $r2Start "HH:MM"
-     * @param string $r2End "HH:MM"
-     */
     public function SetSchedule(string $day, int $control, string $r1Start, string $r1End, string $r2Start, string $r2End): bool
     {
         $keyMap = ['week' => 'sch_week', 'saturday' => 'sch_satur', 'sunday' => 'sch_sund'];
@@ -763,10 +712,6 @@ class WattpilotFlex extends IPSModule
         ]));
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Punkt 5: sendCommand() mit Logging bei Fehler
-    // ══════════════════════════════════════════════════════════════════════════
-
     private function sendCommand(string $key, $value): bool
     {
         $msg = [
@@ -789,14 +734,12 @@ class WattpilotFlex extends IPSModule
             if (($res['status'] ?? '') === 'ok') {
                 return true;
             }
-            // Punkt 5: Fehlermeldung vom Splitter loggen
             $errorMsg = $res['message'] ?? 'unbekannter Fehler';
             $this->SendDebug('CMD', "Befehl '$key' fehlgeschlagen: $errorMsg", 0);
             $this->LogMessage("Wattpilot: Befehl '$key' fehlgeschlagen – $errorMsg", KL_WARNING);
             return false;
         }
 
-        // Punkt 5: Keine Antwort vom Splitter
         $this->SendDebug('CMD', "Befehl '$key' fehlgeschlagen – keine Antwort vom Splitter", 0);
         $this->LogMessage("Wattpilot: Befehl '$key' konnte nicht gesendet werden (Splitter nicht erreichbar)", KL_WARNING);
         return false;
@@ -861,14 +804,11 @@ class WattpilotFlex extends IPSModule
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // Variablen schreiben – Punkt 7 & 13: Typ-Prüfung für nrg/pha/tma Arrays
+    // Variablen schreiben
     // ══════════════════════════════════════════════════════════════════════════
 
     private function writeStatusToVariables(array $s, bool $fu = false): void
     {
-        $carMap = [1 => 'Bereit', 2 => 'Lädt', 3 => 'Warte auf Auto', 4 => 'Fertig', 5 => 'Fehler'];
-        $errMap = [0 => 'Kein Fehler', 1 => 'FiAc', 2 => 'FiDc', 3 => 'Phase', 4 => 'Überspannung', 5 => 'Überstrom', 6 => 'Diode', 7 => 'PpInvalid', 8 => 'GndInvalid', 9 => 'ContactorStuck', 10 => 'ContactorMiss', 11 => 'FiUnknown', 12 => 'Unbekannt', 13 => 'Übertemperatur', 14 => 'NoComm', 15 => 'LockStuckOpen', 16 => 'LockStuckLocked'];
-        $modMap = [0 => 'Keine Daten', 1 => 'Übertemperatur', 2 => 'Zugang: Warten', 3 => 'Force Ein', 4 => 'Force Aus', 5 => 'Zeitplan', 6 => 'Energie-Limit', 7 => 'Awattar', 8 => 'AutoStop Test', 9 => 'AutoStop ZuWenigZeit', 10 => 'AutoStop', 11 => 'AutoStop KeineUhr', 12 => 'PV Überschuss', 13 => 'Fallback GoE Default', 14 => 'Fallback GoE Scheduler', 15 => 'Fallback Default', 16 => 'Fallback GoE Awattar', 17 => 'Fallback Awattar', 18 => 'Fallback AutoStop', 19 => 'KeepAlive', 20 => 'Pause nicht erlaubt', 22 => 'Simulate Unplug', 23 => 'Phasenwechsel', 24 => 'Min. Pause'];
         $lckMap = [0 => 'Normal', 1 => 'Auto Unlock', 2 => 'Always Lock', 3 => 'Force Unlock'];
         $ffbMap = [0 => 'OK', 1 => 'Problem Lock', 2 => 'Problem Unlock'];
         $cusMap = [0 => 'Unbekannt', 1 => 'Entriegelt', 2 => 'Entriegeln fehlgeschlagen', 3 => 'Verriegelt', 4 => 'Verriegeln fehlgeschlagen', 5 => 'Stromausfall'];
@@ -971,7 +911,7 @@ class WattpilotFlex extends IPSModule
         if (isset($s['host'])) $this->setVar('WP_host', (string)($s['host'] ?? ''), $fu);
         if (isset($s['fna'])) $this->setVar('WP_fna', (string)$s['fna'], $fu);
 
-        // ── Phasen (Array) – Punkt 7/13: Typ-Prüfung ────────────────────
+        // ── Phasen (Array) ───────────────────────────────────────────────
         if (isset($s['pha']) && is_array($s['pha']) && count($s['pha']) >= 6) {
             $p = $s['pha'];
             $this->setVar('WP_pha_l1', (bool)($p[3] ?? false), $fu);
@@ -979,7 +919,7 @@ class WattpilotFlex extends IPSModule
             $this->setVar('WP_pha_l3', (bool)($p[5] ?? false), $fu);
         }
 
-        // ── Energie-Array (nrg) – Punkt 7/13: Typ-Prüfung ───────────────
+        // ── Energie-Array (nrg) ──────────────────────────────────────────
         if (isset($s['nrg']) && is_array($s['nrg']) && count($s['nrg']) >= 16) {
             $n = $s['nrg'];
             $this->setVar('WP_nrg_ptotal', round((float)($n[11] ?? 0), 1), $fu);
@@ -997,7 +937,7 @@ class WattpilotFlex extends IPSModule
             $this->setVar('WP_nrg_pfl3', round((float)($n[14] ?? 0), 3), $fu);
         }
 
-        // ── Temperaturen (Array) – Punkt 7/13: Typ-Prüfung ──────────────
+        // ── Temperaturen (Array) ─────────────────────────────────────────
         if (isset($s['tma']) && is_array($s['tma']) && count($s['tma']) >= 6) {
             $t = $s['tma'];
             foreach ([2 => 1, 3 => 2, 4 => 3, 5 => 4] as $i => $nr) {
@@ -1023,7 +963,7 @@ class WattpilotFlex extends IPSModule
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // Variablen-Zugriff
+    // Variablen-Zugriff (Runtime)
     // ══════════════════════════════════════════════════════════════════════════
 
     private function setVar(string $ident, $value, bool $fu = false): void
@@ -1200,72 +1140,4 @@ class WattpilotFlex extends IPSModule
         }
         return false;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // Variablen-Struktur (nur nicht-steuerbare)
-    // ══════════════════════════════════════════════════════════════════════════
-
-    private function createVariableStructure(): void
-    {
-        $cats = [];
-        foreach (self::VARIABLES as [$ident, $name, $type, $profile, $catPath, $position]) {
-            if (in_array($ident, self::ACTIONABLE_IDENTS, true)) {
-                continue;
-            }
-            if (!$this->isIdentEnabled($ident)) {
-                continue;
-            }
-
-            $parts = explode('.', $catPath);
-            $parentId = $this->InstanceID;
-            $catKey = '';
-            $depth = 0;
-
-            foreach ($parts as $part) {
-                $catKey .= 'CAT_' . preg_replace('/[^a-zA-Z0-9]/', '_', $part);
-                if (!array_key_exists($catKey, $cats)) {
-                    $id = @IPS_GetObjectIDByIdent($catKey, $parentId);
-                    if ($id === false || $id <= 0) {
-                        $id = IPS_CreateInstance(self::DUMMY_GUID);
-                        IPS_SetParent($id, $parentId);
-                        IPS_SetIdent($id, $catKey);
-                        IPS_SetName($id, $part);
-                        if ($depth === 0 && isset(self::CATEGORY_POSITIONS[$part])) {
-                            IPS_SetPosition($id, self::CATEGORY_POSITIONS[$part]);
-                        }
-                    }
-                    $cats[$catKey] = (int)$id;
-                }
-                $parentId = $cats[$catKey];
-                $depth++;
-            }
-
-            $this->ensureVariable($ident, $name, $type, $profile, $parentId, $position);
-        }
-    }
-
-    private function ensureVariable(string $ident, string $name, int $type, string $profile, int $parentId, int $position): void
-    {
-        $id = $this->findVariableByIdent($ident);
-
-        if ($id > 0) {
-            if (IPS_GetVariable($id)['VariableType'] !== $type) {
-                IPS_DeleteVariable($id);
-                $this->unregisterFromMap($ident);
-                $id = 0;
-            }
-        }
-
-        if ($id <= 0) {
-            $id = IPS_CreateVariable($type);
-            IPS_SetIdent($id, $ident);
-            IPS_SetName($id, $name);
-            if ($profile !== '' && IPS_VariableProfileExists($profile) && IPS_GetVariableProfile($profile)['ProfileType'] === $type) {
-                IPS_SetVariableCustomProfile($id, $profile);
-            }
-            IPS_SetParent($id, $parentId);
-            IPS_SetPosition($id, $position);
-            $this->registerInMap($ident, $id);
-        }
-    }
-}
+}   
