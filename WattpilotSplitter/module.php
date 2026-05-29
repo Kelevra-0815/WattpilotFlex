@@ -31,7 +31,7 @@ class WattpilotSplitter extends IPSModule
         'fsp', 'modelStatus', 'err', 'adi', 'trx', 'dwo',
         'al1', 'al2', 'al3', 'al4', 'al5', 'clp',
         'fte', 'ftt',
-        'ocppe', 'ocppu', 'ocpph', 'ocpps',
+        'ocppe', 'ocppu', 'ocppc', 'ocpps', 'ocppf',
         'wan', 'wak',
         'ust', 'lck', 'ffb', 'cus',
         'wh', 'eto', 'etop',

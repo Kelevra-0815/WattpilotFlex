@@ -117,7 +117,7 @@
                         { "type": "Label", "caption": "WP_ftt    → Next Trip Abfahrtszeit (HH:MM)" },
                         { "type": "Label", "caption": "WP_ocppe  → OCPP aktiviert (an/aus)" },
                         { "type": "Label", "caption": "WP_ocppu  → OCPP Server-URL" },
-                        { "type": "Label", "caption": "WP_ocpph  → OCPP Heartbeat (Sekunden)" },
+                        { "type": "Label", "caption": "WP_ocppf  → OCPP Fallback Strom (A)" },
                         { "type": "Label", "caption": "WP_wan    → Hotspot SSID" },
                         { "type": "Label", "caption": "WP_wak    → Hotspot Passwort" },
                         { "type": "Label", "caption": "" },
@@ -126,7 +126,7 @@
                         { "type": "Label", "caption": "WP_SetNextTripTime($id, '07:00');    // Abfahrt 7 Uhr" },
                         { "type": "Label", "caption": "WP_SetOCPPEnabled($id, true);" },
                         { "type": "Label", "caption": "WP_SetOCPPUrl($id, 'ws://server/ocpp');" },
-                        { "type": "Label", "caption": "WP_SetOCPPHeartbeat($id, 60);" },
+                        { "type": "Label", "caption": "WP_SetOCPPFallback($id, 10);        // 10A Fallback" },
                         { "type": "Label", "caption": "WP_SetHotspotName($id, 'MeinWP');" },
                         { "type": "Label", "caption": "WP_SetHotspotPassword($id, 'geheim');" }
                     ]

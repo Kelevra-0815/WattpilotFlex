@@ -15,7 +15,7 @@ class WattpilotFlex extends IPSModule
         'WP_frc', 'WP_lmo', 'WP_psm', 'WP_amp', 'WP_ama', 'WP_ust',
         'WP_sch_week_ctrl', 'WP_sch_satur_ctrl', 'WP_sch_sund_ctrl',
         'WP_fte', 'WP_ftt',
-        'WP_ocppe', 'WP_ocppu', 'WP_ocpph', 'WP_ocpps',
+        'WP_ocppe', 'WP_ocppu', 'WP_ocppf',
         'WP_wan', 'WP_wak',
         'WP_al1', 'WP_al2', 'WP_al3', 'WP_al4', 'WP_al5',
     ];
@@ -34,7 +34,7 @@ class WattpilotFlex extends IPSModule
         'ShowExtras'         => ['WP_adi', 'WP_trx', 'WP_dwo'],
         'ShowCurrentLevels'  => ['WP_al1', 'WP_al2', 'WP_al3', 'WP_al4', 'WP_al5'],
         'ShowNextTrip'       => ['WP_fte', 'WP_ftt'],
-        'ShowOCPP'           => ['WP_ocppe', 'WP_ocppu', 'WP_ocpph', 'WP_ocpps'],
+        'ShowOCPP'           => ['WP_ocppe', 'WP_ocppu', 'WP_ocpps', 'WP_ocppf'],
         'ShowHotspot'        => ['WP_wan', 'WP_wak'],
         'ShowPV'             => ['WP_pGrid', 'WP_pPv', 'WP_pAkku', 'WP_akkuSOC'],
         'ShowPVConfig'       => ['WP_fst', 'WP_fup', 'WP_po', 'WP_sh', 'WP_psh', 'WP_spl3'],
@@ -82,8 +82,8 @@ class WattpilotFlex extends IPSModule
         // ── OCPP ──────────────────────────────────────────────────────────
         ['WP_ocppe',       'OCPP aktiviert',            VARIABLETYPE_BOOLEAN, '~Switch',             'OCPP',                1],
         ['WP_ocppu',       'OCPP Server-URL',           VARIABLETYPE_STRING,  '',                    'OCPP',                2],
-        ['WP_ocpph',       'OCPP Heartbeat (s)',        VARIABLETYPE_INTEGER, '',                    'OCPP',                3],
-        ['WP_ocpps',       'OCPP verbunden',            VARIABLETYPE_BOOLEAN, '~Switch',             'OCPP',                4],
+        ['WP_ocpps',       'OCPP Verbunden',            VARIABLETYPE_BOOLEAN, 'WP.OCPPStatus',       'OCPP',                3],
+        ['WP_ocppf',       'OCPP Fallback (A)',         VARIABLETYPE_INTEGER, 'WP.OCPPFallback',     'OCPP',                4],
         // ── Hotspot ───────────────────────────────────────────────────────
         ['WP_wan',         'Hotspot Name (SSID)',       VARIABLETYPE_STRING,  '',                    'Hotspot',             1],
         ['WP_wak',         'Hotspot Passwort',          VARIABLETYPE_STRING,  '',                    'Hotspot',             2],
@@ -215,7 +215,8 @@ class WattpilotFlex extends IPSModule
                 'WP.Lademodus', 'WP.ForceModus', 'WP.Phasenmodus',
                 'WP.Ladestrom', 'WP.Energie', 'WP.UnlockSetting',
                 'WP.Prozent', 'WP.ScheduleCtrl',
-                'WP.CarState', 'WP.ErrorState', 'WP.ModelStatus'
+                'WP.CarState', 'WP.ErrorState', 'WP.ModelStatus',
+                'WP.OCPPStatus', 'WP.OCPPFallback'
             ];
             foreach ($profiles as $p) {
                 if (@IPS_VariableProfileExists($p)) {
@@ -424,18 +425,15 @@ class WattpilotFlex extends IPSModule
      */
     private function ensureVariable(string $ident, string $name, int $type, string $profile, int $parentId, int $position, bool $actionable): void
     {
-        // Existierende Variable suchen (könnte in Unterkategorie sein)
         $existingId = $this->findVariableByIdent($ident);
 
         if ($existingId > 0) {
-            // Zur Instanz verschieben, damit RegisterVariable sie findet
             $currentParent = IPS_GetObject($existingId)['ParentID'];
             if ($currentParent !== $this->InstanceID) {
                 IPS_SetParent($existingId, $this->InstanceID);
             }
         }
 
-        // RegisterVariable erstellt/aktualisiert und setzt Profil als Standarddarstellung
         match ($type) {
             VARIABLETYPE_BOOLEAN => $this->RegisterVariableBoolean($ident, $name, $profile, $position),
             VARIABLETYPE_INTEGER => $this->RegisterVariableInteger($ident, $name, $profile, $position),
@@ -443,15 +441,13 @@ class WattpilotFlex extends IPSModule
             VARIABLETYPE_STRING  => $this->RegisterVariableString($ident, $name, $profile, $position),
         };
 
-        // Aktion aktivieren für steuerbare Variablen
-        if ($actionable) {
-            $this->EnableAction($ident);
-        }
+        // MaintainAction statt EnableAction
+        $this->MaintainAction($ident, $actionable);
 
-        // In Zielkategorie verschieben
+        // IPS_SetPosition ENTFERNT (Benutzerhoheit nach Erstellung)
+
         $id = $this->GetIDForIdent($ident);
         IPS_SetParent($id, $parentId);
-        IPS_SetPosition($id, $position);
         $this->registerInMap($ident, $id);
     }
 
@@ -549,10 +545,8 @@ class WattpilotFlex extends IPSModule
             case 'WP_ocppu':
                 $this->SetOCPPUrl((string)$Value);
                 break;
-            case 'WP_ocpph':
-                $this->SetOCPPHeartbeat((int)$Value);
-                break;
-            case 'WP_ocpps':
+            case 'WP_ocppf':
+                $this->SetOCPPFallback((int)$Value);
                 break;
             case 'WP_wan':
                 $this->SetHotspotName((string)$Value);
@@ -670,9 +664,12 @@ class WattpilotFlex extends IPSModule
         return $this->sendCommand('ocppu', $url);
     }
 
-    public function SetOCPPHeartbeat(int $seconds): bool
+    public function SetOCPPFallback(int $ampere): bool
     {
-        return $this->sendCommand('ocpph', max(0, $seconds));
+        if ($ampere < 6) {
+            return $this->sendCommand('ocppf', null);
+        }
+        return $this->sendCommand('ocppf', max(6, min($this->getMaxAmp(), $ampere)));
     }
 
     public function SetHotspotName(string $name): bool
@@ -798,10 +795,37 @@ class WattpilotFlex extends IPSModule
 
     private function updateLadestromProfile(int $v): void
     {
+        $maxAmp = ($v === 11) ? 16 : 32;
         if (IPS_VariableProfileExists('WP.Ladestrom')) {
-            IPS_SetVariableProfileValues('WP.Ladestrom', 6, ($v === 11) ? 16 : 32, 1);
+            IPS_SetVariableProfileValues('WP.Ladestrom', 6, $maxAmp, 1);
+        }
+        if (IPS_VariableProfileExists('WP.OCPPFallback')) {
+            $this->rebuildOCPPFallbackProfile($maxAmp);
         }
     }
+
+    // ── OCPPFallbackProfile ────────────────────────────────────────────────────────────
+
+    private function rebuildOCPPFallbackProfile(int $maxAmp): void
+    {
+        $name = 'WP.OCPPFallback';
+        if (!IPS_VariableProfileExists($name)) {
+            IPS_CreateVariableProfile($name, VARIABLETYPE_INTEGER);
+        }
+
+        // Bestehende Assoziationen löschen
+        $profile = IPS_GetVariableProfile($name);
+        foreach ($profile['Associations'] as $assoc) {
+            IPS_SetVariableProfileAssociation($name, $assoc['Value'], '', '', -1);
+        }
+
+        // Neu aufbauen: Aus + 6..maxAmp
+        IPS_SetVariableProfileAssociation($name, 0, 'Aus', '', 0x888888);
+        for ($i = 6; $i <= $maxAmp; $i++) {
+            IPS_SetVariableProfileAssociation($name, $i, $i . ' A', '', 0x00AA00);
+        }
+    }
+    
 
     // ══════════════════════════════════════════════════════════════════════════
     // Variablen schreiben
@@ -852,8 +876,11 @@ class WattpilotFlex extends IPSModule
         // ── OCPP ─────────────────────────────────────────────────────────
         if (isset($s['ocppe'])) $this->setVar('WP_ocppe', (bool)$s['ocppe'], $fu);
         if (isset($s['ocppu'])) $this->setVar('WP_ocppu', (string)$s['ocppu'], $fu);
-        if (isset($s['ocpph'])) $this->setVar('WP_ocpph', (int)$s['ocpph'], $fu);
+        if (isset($s['ocppc'])) $this->setVar('WP_ocpps', (bool)$s['ocppc'], $fu);
         if (isset($s['ocpps'])) $this->setVar('WP_ocpps', (bool)$s['ocpps'], $fu);
+        if (array_key_exists('ocppf', $s)) {
+            $this->setVar('WP_ocppf', $s['ocppf'] === null ? 0 : (int)$s['ocppf'], $fu);
+        }
 
         // ── Hotspot ──────────────────────────────────────────────────────
         if (isset($s['wan'])) $this->setVar('WP_wan', (string)$s['wan'], $fu);
@@ -1062,6 +1089,15 @@ class WattpilotFlex extends IPSModule
             IPS_SetVariableProfileAssociation('WP.ErrorState', 16, 'Schloss klemmt zu', '', 0xFF0000);
         }
 
+        if ($this->cp('WP.OCPPStatus', VARIABLETYPE_BOOLEAN)) {
+            IPS_SetVariableProfileAssociation('WP.OCPPStatus', 0, 'Getrennt', '', 0xFF0000);
+            IPS_SetVariableProfileAssociation('WP.OCPPStatus', 1, 'Verbunden', '', 0x00AA00);
+        }
+
+        if ($this->cp('WP.OCPPFallback', VARIABLETYPE_INTEGER)) {
+            $this->rebuildOCPPFallbackProfile($this->getMaxAmp());
+        }
+
         if ($this->cp('WP.ModelStatus', VARIABLETYPE_INTEGER)) {
             IPS_SetVariableProfileAssociation('WP.ModelStatus', 0, 'Keine Daten', '', 0x888888);
             IPS_SetVariableProfileAssociation('WP.ModelStatus', 1, 'Übertemperatur', '', 0xFF0000);
@@ -1140,4 +1176,5 @@ class WattpilotFlex extends IPSModule
         }
         return false;
     }
+    
 }
